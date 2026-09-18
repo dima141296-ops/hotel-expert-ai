@@ -11,8 +11,7 @@
 1. Создайте окружение: `python3 -m venv .venv`.
 2. Активируйте его: `source .venv/bin/activate`.
 3. Установите зависимости: `python -m pip install -r requirements.txt`.
-4. Скопируйте `.env.example` в `.env` и заполните локальный API-ключ.
-
+4. Скопируйте `.env.example` в `.env` и заполните переменные: `GEMINI_API_KEY`, `GEMINI_MODEL`, `TELEGRAM_BOT_TOKEN` и `TELEGRAM_ALLOWED_USER_IDS`.
 ## Запуск
 
 `python -m app.cli data/example_hotel.json`
@@ -22,3 +21,27 @@
 `python -m pytest -v`
 
 AI может ошибаться. Перед публикацией сверьте текст с заметками инспекции.
+
+
+## Telegram-бот
+
+Запуск:
+
+`python -m app.telegram_bot`
+
+Пока эта команда работает, бот доступен в Telegram. Остановить его можно сочетанием `Ctrl+C`.
+
+Команды:
+
+- `/start` — приветствие;
+- `/new` — новая инспекция;
+- `/skip` — пропустить необязательное поле;
+- `/cancel` — отменить диалог и удалить введённые данные.
+
+Бот доступен только Telegram ID из `TELEGRAM_ALLOWED_USER_IDS`.
+
+Чтобы добавить другого человека, допишите его числовой ID через запятую и перезапустите бота:
+
+`TELEGRAM_ALLOWED_USER_IDS=ВАШ_ID,ID_ДРУГОГО_ЧЕЛОВЕКА`
+
+Запросы добавленных пользователей используют ваш лимит Gemini API.
