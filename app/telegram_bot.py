@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sys
 
 from dotenv import load_dotenv
 from telegram import (
@@ -11,11 +10,13 @@ from telegram import (
 from telegram.ext import (
     Application,
     ApplicationBuilder,
+    ApplicationHandlerStop,
     CallbackContext,
     CallbackQueryHandler,
     CommandHandler,
     ConversationHandler,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -53,6 +54,17 @@ def is_allowed_user(
     settings: TelegramSettings,
 ) -> bool:
     return user_id is not None and settings.is_allowed(user_id)
+
+
+def is_private_allowed_user(
+    user_id: int | None,
+    chat_type: str | None,
+    settings: TelegramSettings,
+) -> bool:
+    return (
+        chat_type == "private"
+        and is_allowed_user(user_id, settings)
+    )
 
 
 def _settings(
@@ -94,8 +106,17 @@ async def _ensure_access(
         if update.effective_user
         else None
     )
+    chat_type = (
+        update.effective_chat.type
+        if update.effective_chat
+        else None
+    )
 
-    if is_allowed_user(user_id, _settings(context)):
+    if is_private_allowed_user(
+        user_id,
+        chat_type,
+        _settings(context),
+    ):
         return True
 
     if update.callback_query:
@@ -110,6 +131,14 @@ async def _ensure_access(
     )
 
     return False
+
+
+async def block_disallowed_update(
+    update: Update,
+    context: CallbackContext,
+) -> None:
+    if not await _ensure_access(update, context):
+        raise ApplicationHandlerStop
 
 
 async def _ask_current_field(
@@ -413,6 +442,11 @@ def build_application(
 
     application.bot_data["settings"] = settings
     application.bot_data["generator"] = generator
+
+    application.add_handler(
+        TypeHandler(Update, block_disallowed_update),
+        group=-1,
+    )
 
     application.add_handler(
         CommandHandler("start", start)
