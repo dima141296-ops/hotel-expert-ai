@@ -5,6 +5,7 @@ import pytest
 from telegram.ext import (
     ApplicationHandlerStop,
     ConversationHandler,
+    TypeHandler,
 )
 
 from app.content_generator import ContentGenerationError
@@ -16,6 +17,7 @@ from app.telegram_bot import (
     FIELD_INDEX_KEY,
     REVIEWING,
     block_disallowed_update,
+    build_application,
     cancel,
     is_allowed_user,
     is_private_allowed_user,
@@ -306,3 +308,51 @@ def test_generation_error_keeps_dialog_data():
     assert "Данные сохранены" in (
         update.effective_message.replies[-1]
     )
+
+
+def test_global_guard_rejects_unauthorized_private_user():
+    update = make_update(user_id=202)
+
+    with pytest.raises(ApplicationHandlerStop):
+        asyncio.run(
+            block_disallowed_update(
+                update,
+                make_context(),
+            )
+        )
+
+    assert update.effective_message.replies == [
+        "Доступ к этому боту закрыт."
+    ]
+
+
+def test_global_guard_rejects_unauthorized_callback():
+    update = make_update(
+        user_id=202,
+        callback_data=CREATE_CONTENT,
+    )
+
+    with pytest.raises(ApplicationHandlerStop):
+        asyncio.run(
+            block_disallowed_update(
+                update,
+                make_context(),
+            )
+        )
+
+    assert update.callback_query.answered
+    assert update.effective_message.replies == [
+        "Доступ к этому боту закрыт."
+    ]
+
+
+def test_application_registers_global_access_guard():
+    application = build_application(
+        make_settings(),
+        generator=SuccessfulGenerator(),
+    )
+
+    handler = application.handlers[-1][0]
+
+    assert isinstance(handler, TypeHandler)
+    assert handler.callback is block_disallowed_update
